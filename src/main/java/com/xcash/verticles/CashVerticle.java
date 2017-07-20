@@ -7,6 +7,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
@@ -15,10 +16,12 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import com.xcash.entity.CashTransaction;
+import com.xcash.entity.Channel;
 import com.xcash.entity.TransactionCode;
 import com.xcash.service.CashService;
 import com.xcash.service.CashServiceJuZhenImpl;
@@ -63,6 +66,7 @@ public class CashVerticle extends AbstractVerticle {
 		router.post("/xcash/v1/cashing").handler(this::handlePostCash);
 		router.post("/xcash/v1/query").handler(this::handleQuery);
 		router.post("/xcash/v1/balance").handler(this::handleBalance);
+		router.post("/xcash/notify/:channel").handler(this::handleNotify);
 		service = new CashServiceJuZhenImpl(vertx);
 		vertx.createHttpServer()
 				.requestHandler(router::accept)
@@ -146,6 +150,22 @@ public class CashVerticle extends AbstractVerticle {
 			 }
 		 }));
 	 }
+	
+	private void handleNotify(RoutingContext context) {
+		String body = context.getBodyAsString();
+		if (body == null) {
+		      sendError(400, context.response());
+		      return;
+		}
+		Optional<Channel> channel = Channel.fromValue(context.request().getParam("channel"));
+		if (!channel.isPresent()) {
+		      sendError(400, context.response());
+		      return;
+		}
+		System.out.println("Notify from "+channel.get().getId()+": "+body);
+		context.response().putHeader("content-type", "application/json").end(new JsonObject().put("respCode", "00000").put("respInfo",  "OK").encode());
+	 }
+	
 	  /**
 	   * Wrap the result handler with failure handler (503 Service Unavailable)
 	   */

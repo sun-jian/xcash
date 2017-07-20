@@ -12,6 +12,11 @@ jar {
 	// by default fat jar
 	archiveName = 'xcash-fat.jar'
 	from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+	{
+		exclude "META-INF/*.SF"
+		exclude "META-INF/*.DSA"
+		exclude "META-INF/*.RSA"
+   }
 	manifest {
 	  attributes 'Main-Class': 'io.vertx.core.Launcher'
 	  attributes 'Main-Verticle': 'com.xcash.verticles.CashVerticle'
@@ -52,8 +57,12 @@ jar {
   dependencies {
 	compile("io.vertx:vertx-core:${vertxVersion}")
 	compile("io.vertx:vertx-web:${vertxVersion}")
+	compile("io.vertx:vertx-web-client:${vertxVersion}")
 	compileOnly("io.vertx:vertx-codegen:${vertxVersion}")
-  
+	compile 'com.google.guava:guava:18.0'
+	compile 'org.apache.commons:commons-lang3:3.3.2'
+	compile files('libs/ju-encrypt-1.4.jar')  
+	compile files('libs/bcprov-jdk15-140.jar')
 	testCompile("io.vertx:vertx-unit:${vertxVersion}")
 	testCompile group: 'junit', name: 'junit', version: '4.12'
   }

@@ -19,8 +19,9 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import com.xcash.entity.CashTransaction;
+import com.xcash.entity.TransactionCode;
 import com.xcash.service.CashService;
-import com.xcash.service.CashServiceImpl;
+import com.xcash.service.CashServiceJuZhenImpl;
 import com.xcash.util.Runner;
 
 public class CashVerticle extends AbstractVerticle {
@@ -30,7 +31,7 @@ public class CashVerticle extends AbstractVerticle {
 
 	private static final String HOST = "0.0.0.0";
 	private static final int PORT = 8082;
-	private CashService service = new CashServiceImpl();
+	private CashService service;
 	
 	  // Convenience method so you can run it in your IDE
 	  public static void main(String[] args) {
@@ -59,8 +60,8 @@ public class CashVerticle extends AbstractVerticle {
 						.allowedMethods(allowMethods));
 
 		// routes
-		router.get("/xcash/v1/cash").handler(this::handlePostCash);
-
+		router.post("/xcash/v1/cashing").handler(this::handlePostCash);
+		service = new CashServiceJuZhenImpl(vertx);
 		vertx.createHttpServer()
 				.requestHandler(router::accept)
 				.listen(config().getInteger("http.port", PORT),
@@ -71,25 +72,30 @@ public class CashVerticle extends AbstractVerticle {
 								future.fail(result.cause());
 						});
 	}
-	
-	 private void handlePostCash(RoutingContext context) {
-		    String storeId = context.request().getParam("storeId");
-		    if (storeId == null) {
+
+	private void handlePostCash(RoutingContext context) {
+		String body = context.getBodyAsString();
+		if (body == null) {
 		      sendError(400, context.response());
 		      return;
-		    }
-		    CashTransaction transaction = new CashTransaction();
-		    service.postCash(transaction).setHandler(resultHandler(context, res -> {
-		      if (res==null)
-		        notFound(context);
-		      else {
-		        final String encoded = Json.encodePrettily(res);
-		        context.response()
-		          .putHeader("content-type", "application/json")
-		          .end(encoded);
-		      }
-		    }));
-		  }
+		}
+		CashTransaction transaction = new CashTransaction(body);
+		transaction.setTc(TransactionCode.CASHING);
+		if (!transaction.isValid()) {
+		      sendError(400, context.response());
+		      return;
+		}
+		service.postCash(transaction).setHandler(resultHandler(context, res -> {
+			if (res==null)
+			   notFound(context);
+			else {
+				final String encoded = Json.encodePrettily(res);
+				context.response()
+			    .putHeader("content-type", "application/json")
+			    .end(encoded);
+			 }
+		 }));
+	 }
 	 
 	  /**
 	   * Wrap the result handler with failure handler (503 Service Unavailable)

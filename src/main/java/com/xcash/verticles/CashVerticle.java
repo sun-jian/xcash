@@ -61,6 +61,8 @@ public class CashVerticle extends AbstractVerticle {
 
 		// routes
 		router.post("/xcash/v1/cashing").handler(this::handlePostCash);
+		router.post("/xcash/v1/query").handler(this::handleQuery);
+		router.post("/xcash/v1/balance").handler(this::handleBalance);
 		service = new CashServiceJuZhenImpl(vertx);
 		vertx.createHttpServer()
 				.requestHandler(router::accept)
@@ -96,7 +98,54 @@ public class CashVerticle extends AbstractVerticle {
 			 }
 		 }));
 	 }
+	
+	private void handleQuery(RoutingContext context) {
+		String body = context.getBodyAsString();
+		if (body == null) {
+		      sendError(400, context.response());
+		      return;
+		}
+		CashTransaction transaction = new CashTransaction(body);
+		transaction.setTc(TransactionCode.QUERY);
+		if (!transaction.isValid()) {
+		      sendError(400, context.response());
+		      return;
+		}
+		service.query(transaction).setHandler(resultHandler(context, res -> {
+			if (res==null)
+			   notFound(context);
+			else {
+				final String encoded = Json.encodePrettily(res);
+				context.response()
+			    .putHeader("content-type", "application/json")
+			    .end(encoded);
+			 }
+		 }));
+	 }
 	 
+	private void handleBalance(RoutingContext context) {
+		String body = context.getBodyAsString();
+		if (body == null) {
+		      sendError(400, context.response());
+		      return;
+		}
+		CashTransaction transaction = new CashTransaction(body);
+		transaction.setTc(TransactionCode.BALANCE);
+		if (!transaction.isValid()) {
+		      sendError(400, context.response());
+		      return;
+		}
+		service.balance(transaction).setHandler(resultHandler(context, res -> {
+			if (res==null)
+			   notFound(context);
+			else {
+				final String encoded = Json.encodePrettily(res);
+				context.response()
+			    .putHeader("content-type", "application/json")
+			    .end(encoded);
+			 }
+		 }));
+	 }
 	  /**
 	   * Wrap the result handler with failure handler (503 Service Unavailable)
 	   */

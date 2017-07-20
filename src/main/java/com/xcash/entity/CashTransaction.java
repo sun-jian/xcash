@@ -36,7 +36,7 @@ public class CashTransaction {
 		this.bankName = jsonObj.getString("bankName", "");
 		this.totalFee = jsonObj.getString("totalFee", "");
 		this.purpose = jsonObj.getString("purpose", "");
-		this.orderId = IDGenerator.buildShortOrderNo();
+		this.orderId = jsonObj.getString("orderId", IDGenerator.buildShortOrderNo());
 	}
 
 	public Channel getChannel() {
@@ -141,6 +141,10 @@ public class CashTransaction {
 		switch(tc) {
 		case CASHING: 
 			return StringUtils.isNoneBlank(cardNum, accountName, bankName, totalFee, purpose);
+		case QUERY:
+			return StringUtils.isNoneBlank(orderId);
+		case BALANCE:
+			return true;
 		}
 		
 		return true;

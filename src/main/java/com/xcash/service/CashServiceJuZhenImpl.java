@@ -16,6 +16,7 @@ import java.util.Map.Entry;
 
 import com.ju.utils.EncryptUtils;
 import com.xcash.entity.CashTransaction;
+import com.xcash.util.IDGenerator;
 import com.xcash.util.TimeUtils;
 
 public class CashServiceJuZhenImpl implements CashService {
@@ -34,8 +35,8 @@ public class CashServiceJuZhenImpl implements CashService {
 		String endpoint = transaction.getChannel().getEndpoint();
 		String pubKeyUrl = transaction.getChannel().getPublicKeyPath();
 		
-		final String msgInfo = this.buildMsg(transaction);
-		this.encrity(msgInfo, pubKeyUrl, res -> {
+		final String msgInfo = this.buildCashingMsg(transaction);
+		this.encrypt(msgInfo, pubKeyUrl, res -> {
 			this.sign(storeId, orderId, tradeCode, res.result(), pubKeyUrl, sign -> {
 				Map<String, String> map = new HashMap<String, String>();
 				map.put("merId", storeId);
@@ -46,13 +47,13 @@ public class CashServiceJuZhenImpl implements CashService {
 				map.put("backUrl", backUrl);
 				String msg = this.toMsg(map);
 				Buffer buffer = Buffer.buffer(msg);
-				System.out.println("post request: " + endpoint + ", " + msg);
+				System.out.println("PostCash: " + endpoint + ", " + msg);
 				WebClient client = WebClient.create(vertx);
-				client.postAbs(endpoint).ssl(endpoint.startsWith("https:"))
-					  .sendBuffer(buffer, ar -> {
+				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
 					if (ar.succeeded()) {
 						HttpResponse<Buffer> response = ar.result();
 						JsonObject body = response.bodyAsJsonObject();
+						body.put("orderId", orderId);
 						System.out.println("PostCash : "+ body.encode());
 						result.complete(body);
 					} else {
@@ -64,8 +65,84 @@ public class CashServiceJuZhenImpl implements CashService {
 		});
 		return result;
 	}
+	
+	public Future<JsonObject> query(CashTransaction transaction) {
+		Future<JsonObject> result = Future.future();
+		String storeId = transaction.getChannel().getStoreId();
+		String tradeCode = transaction.getChannel().getTransactionCode(transaction.getTc());
+		String orderId = IDGenerator.buildShortOrderNo();
+		String endpoint = transaction.getChannel().getEndpoint();
+		String pubKeyUrl = transaction.getChannel().getPublicKeyPath();
+		
+		final String msgInfo = this.buildQueryMsg(transaction);
+		this.encrypt(msgInfo, pubKeyUrl, res -> {
+			this.sign(storeId, orderId, tradeCode, res.result(), pubKeyUrl, sign -> {
+				Map<String, String> map = new HashMap<String, String>();
+				map.put("merId", storeId);
+				map.put("tradeCode", tradeCode);
+				map.put("orderId", orderId);
+				map.put("msg", res.result());
+				map.put("signature", sign.result());
+				String msg = this.toMsg(map);
+				Buffer buffer = Buffer.buffer(msg);
+				System.out.println("Query: " + endpoint + ", " + msg);
+				WebClient client = WebClient.create(vertx);
+				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
+					if (ar.succeeded()) {
+						HttpResponse<Buffer> response = ar.result();
+						JsonObject body = response.bodyAsJsonObject();
+						body.put("orderId", orderId);
+						System.out.println("Query : "+ body.encode());
+						result.complete(body);
+					} else {
+						ar.cause().printStackTrace();
+						result.fail(ar.cause());
+					}
+			    });
+			});
+		});
+		return result;
+	}
+	
+	public Future<JsonObject> balance(CashTransaction transaction) {
+		Future<JsonObject> result = Future.future();
+		String storeId = transaction.getChannel().getStoreId();
+		String tradeCode = transaction.getChannel().getTransactionCode(transaction.getTc());
+		String orderId = transaction.getOrderId();
+		String endpoint = transaction.getChannel().getEndpoint();
+		String pubKeyUrl = transaction.getChannel().getPublicKeyPath();
+		
+		final String msgInfo = this.buildBalanceMsg(transaction);
+		this.encrypt(msgInfo, pubKeyUrl, res -> {
+			this.sign(storeId, orderId, tradeCode, res.result(), pubKeyUrl, sign -> {
+				Map<String, String> map = new HashMap<String, String>();
+				map.put("merId", storeId);
+				map.put("tradeCode", tradeCode);
+				map.put("orderId", orderId);
+				map.put("msg", res.result());
+				map.put("signature", sign.result());
+				String msg = this.toMsg(map);
+				Buffer buffer = Buffer.buffer(msg);
+				System.out.println("Balance: " + endpoint + ", " + msg);
+				WebClient client = WebClient.create(vertx);
+				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
+					if (ar.succeeded()) {
+						HttpResponse<Buffer> response = ar.result();
+						JsonObject body = response.bodyAsJsonObject();
+						body.put("orderId", orderId);
+						System.out.println("Balance : "+ body.encode());
+						result.complete(body);
+					} else {
+						ar.cause().printStackTrace();
+						result.fail(ar.cause());
+					}
+			    });
+			});
+		});
+		return result;
+	}
 
-	private void encrity(final String msgInfo,final String pubKeyUrl,
+	private void encrypt(final String msgInfo,final String pubKeyUrl,
 			Handler<AsyncResult<String>> handler) {
 		vertx.executeBlocking(future -> {
 			try {
@@ -98,7 +175,7 @@ public class CashServiceJuZhenImpl implements CashService {
 	
 	private static final char SEP = '|';
 	private static final String ACCOUNT_PRIVATE = "02";
-	private String buildMsg(CashTransaction transaction) {
+	private String buildCashingMsg(CashTransaction transaction) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(TimeUtils.formatTime(new Date(),TimeUtils.TimePattern14));
 		sb.append(SEP).append(ACCOUNT_PRIVATE);
@@ -112,26 +189,33 @@ public class CashServiceJuZhenImpl implements CashService {
 		sb.append(SEP).append(transaction.getPurpose());
 		return sb.toString();
 	}
+	
+	private String buildQueryMsg(CashTransaction transaction) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(TimeUtils.formatTime(new Date(),TimeUtils.TimePattern14));
+		sb.append(SEP).append(transaction.getOrderId());
+		sb.append(SEP).append(transaction.getChannel().getCashTransCode());
+		return sb.toString();
+	}
+	
+	private String buildBalanceMsg(CashTransaction transaction) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(TimeUtils.formatTime(new Date(),TimeUtils.TimePattern14));
+		sb.append(SEP).append("01");
+		return sb.toString();
+	}
 
 	private String toMsg(Map<String, String> map) {
 		StringBuilder sb = new StringBuilder();
 		String msg = "";
 		if (map != null) {
-
 			for (Entry<String, String> e : map.entrySet()) {
-
 				sb.append(e.getKey());
-
 				sb.append("=");
-
 				sb.append(e.getValue());
-
 				sb.append("&");
-
 			}
-
 			msg = sb.substring(0, sb.length() - 1);
-
 		}
 		return msg;
 	}

@@ -7,4 +7,8 @@ import com.xcash.entity.CashTransaction;
 
 public interface CashService {
 	Future<JsonObject> postCash(CashTransaction transaction);
+	
+	Future<JsonObject> query(CashTransaction transaction);
+	
+	Future<JsonObject> balance(CashTransaction transaction);
 }

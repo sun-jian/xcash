@@ -5,7 +5,7 @@ import java.util.Optional;
 
 public enum Channel {
 	JUZHEN_TEST("juzhen_test", "898000000020195", "http://tech.eidpay.com:8080/juPay", "/var/certs/juzhen/898000000020195_public.key", "500302", "500401", "500501", "http://106.14.47.193/xcash/notify/juzhen_test"),
-	JUZHEN("juzhen", "898000000020068", "https://app.eidpay.com/juPay", "/var/certs/juzhen/898000000020068_public.key", "500302", "500401", "500501", "http://106.14.47.193/xcash/notify/juzhen");
+	JUZHEN("juzhen", "898000000020068", "http://app.eidpay.com:8080/juPay", "/var/certs/juzhen/898000000020068_public.key", "500302", "500401", "500501", "http://106.14.47.193/xcash/notify/juzhen");
 	
 	String id;
 	String storeId;

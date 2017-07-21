@@ -63,6 +63,8 @@ jar {
 	compile ('com.google.guava:guava:18.0')
 	compile ('org.apache.commons:commons-lang3:3.3.2')
 	compile ('org.apache.logging.log4j:log4j-slf4j-impl:2.0')
+	compile ('org.apache.logging.log4j:log4j-api:2.8.2')
+	compile ('org.apache.logging.log4j:log4j-core:2.8.2')
 	compile files('libs/ju-encrypt-1.4.jar')  
 	compile files('libs/bcprov-jdk15-140.jar')
 	testCompile("io.vertx:vertx-unit:${vertxVersion}")

@@ -52,7 +52,7 @@ public class CashServiceJuZhenImpl implements CashService {
 				map.put("backUrl", backUrl);
 				String msg = this.toMsg(map);
 				Buffer buffer = Buffer.buffer(msg);
-				LOGGER.info("Query request: {}, {}", endpoint , msg);
+				LOGGER.info("PostCash request: {}, {}", endpoint , msg);
 				WebClient client = WebClient.create(vertx);
 				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
 					if (ar.succeeded()) {
@@ -157,9 +157,9 @@ public class CashServiceJuZhenImpl implements CashService {
 			Handler<AsyncResult<String>> handler) {
 		vertx.executeBlocking(future -> {
 			try {
-				System.out.println("before msg = " + msgInfo);
+				LOGGER.info("before encrypt msg = {}", msgInfo);
 				String msg = EncryptUtils.encrypt(msgInfo, pubKeyUrl);
-				System.out.println("msg = " + msg);
+				LOGGER.info("after encrypt msg = {}", msg);
 				future.complete(msg);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -176,7 +176,7 @@ public class CashServiceJuZhenImpl implements CashService {
 					try {
 						String signature = EncryptUtils.juSignature(merId
 								+ orderId + tradeCode + msgInfo, pubKeyUrl);
-						System.out.println("sign = " + signature);
+						LOGGER.info("sign = {}", signature);
 						future.complete(signature);
 					} catch (Exception e) {
 						future.fail(e);

@@ -1,6 +1,7 @@
 package com.xcash.verticles;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
@@ -94,14 +95,11 @@ public class CashVerticle extends AbstractVerticle {
 		}
 		dao.insert(transaction, dbRes -> {
 			service.postCash(transaction, res -> {
-				if (res==null)
-				   notFound(context);
-				else {
-					success(context, res.result());
-				}
+				handleResponse(context, res);
 			 });
 		});
 	 }
+
 	
 	private void handleQuery(RoutingContext context) {
 		JsonObject body = context.getBodyAsJson();
@@ -127,11 +125,13 @@ public class CashVerticle extends AbstractVerticle {
 				service.query(transaction, res -> {
 					if (res==null)
 					    notFound(context);
-					else {
+					else if(res.succeeded()) {
 						String extStatus = res.result().getString("status");
 						tranJson.put("status", extStatus);
 						success(context, tranJson);
-					 }
+					} else {
+						serverError(context, res.cause());
+					}
 				 });
 			} else {
 				success(context, tranJson);
@@ -152,11 +152,7 @@ public class CashVerticle extends AbstractVerticle {
 		    return;
 		}
 		service.balance(transaction, res -> {
-			if (res==null)
-			   notFound(context);
-			else {
-				success(context, res.result());
-			 }
+			handleResponse(context, res);
 		 });
 	 }
 	
@@ -184,15 +180,34 @@ public class CashVerticle extends AbstractVerticle {
 		});
 	}
 	
-	  private void notFound(RoutingContext context) {
-		context.response().setStatusCode(404).end();
-	  }
 
-	  private void badRequest(RoutingContext context) {
-	    context.response().setStatusCode(400).end();
-	  }
+
+	private void handleResponse(RoutingContext context,
+			AsyncResult<JsonObject> res) {
+		if (res==null)
+		   notFound(context);
+		else {
+			if(res.succeeded()) {
+				success(context, res.result());
+			} else {
+				serverError(context, res.cause());
+			}
+		}
+	}
+	
+	private void notFound(RoutingContext context) {
+		context.response().setStatusCode(404).end();
+	}
 	  
-	  private void success(RoutingContext context, JsonObject response) {
-		  context.response().putHeader("content-type", "application/json").end(response.encodePrettily());
-	  }
+	private void serverError(RoutingContext context, Throwable cause) {
+		context.response().setStatusCode(500).end();
+	}
+
+	private void badRequest(RoutingContext context) {
+	    context.response().setStatusCode(400).end();
+	}
+	  
+	private void success(RoutingContext context, JsonObject response) {
+	  context.response().putHeader("content-type", "application/json").end(response.encodePrettily());
+	}
 }

@@ -127,7 +127,12 @@ public class CashVerticle extends AbstractVerticle {
 					    notFound(context);
 					else if(res.succeeded()) {
 						String extStatus = res.result().getString("status");
+						String extError = res.result().getString("error");
 						tranJson.put("status", extStatus);
+						if(StringUtils.isNotBlank(extError)) {
+							tranJson.put("error", extError);
+						}
+						tranJson.remove("found");
 						success(context, tranJson);
 					} else {
 						serverError(context, res.cause());

@@ -64,6 +64,9 @@ public class CashServiceJuZhenImpl implements CashService {
 						String code = body.getString("respCode");
 						String status = this.handleStatus(code);
 						result.put("status", status);
+						if(!CashTransaction.SUCCESS.equals(status)) {
+							result.put("error", body.getString("respInfo"));
+						}
 						resultHandler.handle(Future.succeededFuture(result));
 					} else {
 						LOGGER.error("postCash failed", ar.cause());
@@ -103,8 +106,12 @@ public class CashServiceJuZhenImpl implements CashService {
 						JsonObject result = new JsonObject();
 						result.put("orderId", orderId);
 						String code = body.getString("respCode");
-						String status = this.handleStatus(code);
+						String ordStatus = body.getString("ordStatus");
+						String status = this.handleStatus(code, ordStatus);
 						result.put("status", status);
+						if(!CashTransaction.SUCCESS.equals(status)) {
+							result.put("error", body.getString("ordInfo"));
+						}
 						resultHandler.handle(Future.succeededFuture(result));
 					} else {
 						LOGGER.error("postCash failed", ar.cause());
@@ -236,6 +243,18 @@ public class CashServiceJuZhenImpl implements CashService {
 		if(code.startsWith("0")) {
 			status = CashTransaction.SUCCESS;
 		} else if(code.startsWith("1")) {
+			status = CashTransaction.ERROR;
+		} else {
+			status = CashTransaction.PENDING;
+		}
+		return status;
+	}
+	
+	private String handleStatus(String code, String ordStatus) {
+		String status = CashTransaction.SUCCESS;
+		if(code.startsWith("0") && ordStatus.startsWith("0")) {
+			status = CashTransaction.SUCCESS;
+		} else if(code.startsWith("1") || ordStatus.startsWith("1")) {
 			status = CashTransaction.ERROR;
 		} else {
 			status = CashTransaction.PENDING;

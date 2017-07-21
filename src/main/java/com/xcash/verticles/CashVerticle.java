@@ -1,15 +1,9 @@
 package com.xcash.verticles;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -18,8 +12,12 @@ import io.vertx.ext.web.handler.CorsHandler;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.xcash.dao.CashTransactionDAO;
 import com.xcash.entity.CashTransaction;
 import com.xcash.entity.Channel;
 import com.xcash.entity.TransactionCode;
@@ -29,17 +27,18 @@ import com.xcash.util.Runner;
 
 public class CashVerticle extends AbstractVerticle {
 
-	private static final Logger LOGGER = LoggerFactory
-			.getLogger(CashVerticle.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(CashVerticle.class);
 
 	private static final String HOST = "0.0.0.0";
 	private static final int PORT = 8082;
 	private CashService service;
+	private CashTransactionDAO dao;
 	
 	  // Convenience method so you can run it in your IDE
 	  public static void main(String[] args) {
 	    Runner.runExample(CashVerticle.class);
 	  }
+
 	
 	@Override
 	public void start(Future<Void> future) throws Exception {
@@ -58,16 +57,18 @@ public class CashVerticle extends AbstractVerticle {
 		allowMethods.add(HttpMethod.PATCH);
 
 		router.route().handler(BodyHandler.create());
-		router.route().handler(
-				CorsHandler.create("*").allowedHeaders(allowHeaders)
-						.allowedMethods(allowMethods));
+		router.route().handler(CorsHandler.create("*").allowedHeaders(allowHeaders).allowedMethods(allowMethods));
 
 		// routes
 		router.post("/xcash/v1/cashing").handler(this::handlePostCash);
 		router.post("/xcash/v1/query").handler(this::handleQuery);
 		router.post("/xcash/v1/balance").handler(this::handleBalance);
 		router.post("/xcash/notify/:channel").handler(this::handleNotify);
+		
 		service = new CashServiceJuZhenImpl(vertx);
+		JsonObject dbConfig = new JsonObject().put("host", "127.0.0.1").put("port", 5432).put("maxPoolSize",10).put("username", "xpay").put("password", "").put("database", "xpay");
+		this.dao = new CashTransactionDAO(vertx, dbConfig);
+
 		vertx.createHttpServer()
 				.requestHandler(router::accept)
 				.listen(config().getInteger("http.port", PORT),
@@ -80,118 +81,118 @@ public class CashVerticle extends AbstractVerticle {
 	}
 
 	private void handlePostCash(RoutingContext context) {
-		String body = context.getBodyAsString();
+		JsonObject body = context.getBodyAsJson();
 		if (body == null) {
-		      sendError(400, context.response());
+			  badRequest(context);
 		      return;
 		}
 		CashTransaction transaction = new CashTransaction(body);
 		transaction.setTc(TransactionCode.CASHING);
 		if (!transaction.isValid()) {
-		      sendError(400, context.response());
+			  badRequest(context);
 		      return;
 		}
-		service.postCash(transaction).setHandler(resultHandler(context, res -> {
-			if (res==null)
-			   notFound(context);
-			else {
-				final String encoded = Json.encodePrettily(res);
-				context.response()
-			    .putHeader("content-type", "application/json")
-			    .end(encoded);
-			 }
-		 }));
+		dao.insert(transaction, dbRes -> {
+			service.postCash(transaction, res -> {
+				if (res==null)
+				   notFound(context);
+				else {
+					success(context, res.result());
+				}
+			 });
+		});
 	 }
 	
 	private void handleQuery(RoutingContext context) {
-		String body = context.getBodyAsString();
+		JsonObject body = context.getBodyAsJson();
 		if (body == null) {
-		      sendError(400, context.response());
-		      return;
+			badRequest(context);
+		    return;
 		}
 		CashTransaction transaction = new CashTransaction(body);
 		transaction.setTc(TransactionCode.QUERY);
 		if (!transaction.isValid()) {
-		      sendError(400, context.response());
-		      return;
+			badRequest(context);
+		    return;
 		}
-		service.query(transaction).setHandler(resultHandler(context, res -> {
-			if (res==null)
-			   notFound(context);
-			else {
-				final String encoded = Json.encodePrettily(res);
-				context.response()
-			    .putHeader("content-type", "application/json")
-			    .end(encoded);
-			 }
-		 }));
+		dao.findByOrderNo(transaction.getOrderId(), trans -> {
+			JsonObject tranJson = trans.result();
+			boolean found = tranJson.getBoolean("found");
+			String status = tranJson.getString("status");
+			if(!found) {
+				notFound(context);
+				return;
+			} 
+			if(!CashTransaction.SUCCESS.equals(status)) {
+				service.query(transaction, res -> {
+					if (res==null)
+					    notFound(context);
+					else {
+						String extStatus = res.result().getString("status");
+						tranJson.put("status", extStatus);
+						success(context, tranJson);
+					 }
+				 });
+			} else {
+				success(context, tranJson);
+			}
+		});
 	 }
 	 
 	private void handleBalance(RoutingContext context) {
-		String body = context.getBodyAsString();
+		JsonObject body = context.getBodyAsJson();
 		if (body == null) {
-		      sendError(400, context.response());
-		      return;
+			badRequest(context);
+		    return;
 		}
 		CashTransaction transaction = new CashTransaction(body);
 		transaction.setTc(TransactionCode.BALANCE);
 		if (!transaction.isValid()) {
-		      sendError(400, context.response());
-		      return;
+			badRequest(context);
+		    return;
 		}
-		service.balance(transaction).setHandler(resultHandler(context, res -> {
+		service.balance(transaction, res -> {
 			if (res==null)
 			   notFound(context);
 			else {
-				final String encoded = Json.encodePrettily(res);
-				context.response()
-			    .putHeader("content-type", "application/json")
-			    .end(encoded);
+				success(context, res.result());
 			 }
-		 }));
+		 });
 	 }
 	
 	private void handleNotify(RoutingContext context) {
-		String body = context.getBodyAsString();
+		JsonObject body = context.getBodyAsJson();
 		if (body == null) {
-		      sendError(400, context.response());
-		      return;
+			badRequest(context);
+		    return;
 		}
 		Optional<Channel> channel = Channel.fromValue(context.request().getParam("channel"));
 		if (!channel.isPresent()) {
-		      sendError(400, context.response());
-		      return;
+			badRequest(context);
+		    return;
 		}
-		System.out.println("Notify from "+channel.get().getId()+": "+body);
-		context.response().putHeader("content-type", "application/json").end(new JsonObject().put("respCode", "00000").put("respInfo",  "OK").encode());
-	 }
-	
-	  /**
-	   * Wrap the result handler with failure handler (503 Service Unavailable)
-	   */
-	  private <T> Handler<AsyncResult<T>> resultHandler(RoutingContext context, Consumer<T> consumer) {
-	    return res -> {
-	      if (res.succeeded()) {
-	        consumer.accept(res.result());
-	      } else {
-	        serviceUnavailable(context);
-	      }
-	    };
-	  }
-	  
-	  private void sendError(int statusCode, HttpServerResponse response) {
-	    response.setStatusCode(statusCode).end();
-	  }
+		String orderId = body.getString("orderId");
+		if(StringUtils.isBlank(orderId)) {
+			badRequest(context);
+		    return;
+		}
+		LOGGER.info("Notify from {} : {}", channel.get().getId(), body);
 
+		dao.updateStatus(orderId, CashTransaction.SUCCESS, dbRes -> {
+			JsonObject response = new JsonObject().put("respCode", "00000").put("respInfo",  "OK");
+			success(context, response);
+		});
+	}
+	
 	  private void notFound(RoutingContext context) {
-	    context.response().setStatusCode(404).end();
+		context.response().setStatusCode(404).end();
 	  }
 
 	  private void badRequest(RoutingContext context) {
 	    context.response().setStatusCode(400).end();
 	  }
-
-	  private void serviceUnavailable(RoutingContext context) {
-	    context.response().setStatusCode(503).end();
+	  
+	  private void success(RoutingContext context, JsonObject response) {
+		  context.response().putHeader("content-type", "application/json").end(response.encodePrettily());
 	  }
 }

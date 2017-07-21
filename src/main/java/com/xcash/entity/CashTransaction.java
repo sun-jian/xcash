@@ -8,6 +8,10 @@ import com.xcash.util.IDGenerator;
 import io.vertx.core.json.JsonObject;
 
 public class CashTransaction {
+	public static final String SUCCESS = "SUCCESS";
+	public static final String PENDING = "PENDING";
+	public static final String ERROR = "ERROR";
+	
 	private Channel channel;
 	private TransactionCode tc;
 	private String cardNum;
@@ -24,8 +28,7 @@ public class CashTransaction {
 		
 	}
 	
-	public CashTransaction(String jsonStr) {
-		JsonObject jsonObj = new JsonObject(jsonStr);
+	public CashTransaction(JsonObject jsonObj) {
 		String channelName = jsonObj.getString("channel", "juzhen");
 		this.channel = Channel.fromValue(channelName).get();
 		this.cardNum = jsonObj.getString("cardNum", "");

@@ -14,20 +14,25 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.ju.utils.EncryptUtils;
 import com.xcash.entity.CashTransaction;
 import com.xcash.util.IDGenerator;
 import com.xcash.util.TimeUtils;
+import com.xcash.verticles.CashVerticle;
 
 public class CashServiceJuZhenImpl implements CashService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(CashVerticle.class);
+	
 	private final Vertx vertx;
 
 	public CashServiceJuZhenImpl(Vertx vertx) {
 		this.vertx = vertx;
 	}
 
-	public Future<JsonObject> postCash(CashTransaction transaction) {
-		Future<JsonObject> result = Future.future();
+	public CashService postCash(CashTransaction transaction, Handler<AsyncResult<JsonObject>> resultHandler) {
 		String storeId = transaction.getChannel().getStoreId();
 		String tradeCode = transaction.getChannel().getTransactionCode(transaction.getTc());
 		String orderId = transaction.getOrderId();
@@ -47,27 +52,30 @@ public class CashServiceJuZhenImpl implements CashService {
 				map.put("backUrl", backUrl);
 				String msg = this.toMsg(map);
 				Buffer buffer = Buffer.buffer(msg);
-				System.out.println("PostCash: " + endpoint + ", " + msg);
+				LOGGER.info("Query request: {}, {}", endpoint , msg);
 				WebClient client = WebClient.create(vertx);
 				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
 					if (ar.succeeded()) {
 						HttpResponse<Buffer> response = ar.result();
 						JsonObject body = response.bodyAsJsonObject();
-						body.put("orderId", orderId);
-						System.out.println("PostCash : "+ body.encode());
-						result.complete(body);
+						LOGGER.info("PostCash result: {}", body.encode());
+						JsonObject result = new JsonObject();
+						result.put("orderId", orderId);
+						String code = body.getString("respCode");
+						String status = this.handleStatus(code);
+						result.put("status", status);
+						resultHandler.handle(Future.succeededFuture(result));
 					} else {
-						ar.cause().printStackTrace();
-						result.fail(ar.cause());
+						LOGGER.error("postCash failed", ar.cause());
+						resultHandler.handle(Future.failedFuture(ar.cause()));
 					}
 			    });
 			});
 		});
-		return result;
+		return this;
 	}
 	
-	public Future<JsonObject> query(CashTransaction transaction) {
-		Future<JsonObject> result = Future.future();
+	public CashService query(CashTransaction transaction, Handler<AsyncResult<JsonObject>> resultHandler) {
 		String storeId = transaction.getChannel().getStoreId();
 		String tradeCode = transaction.getChannel().getTransactionCode(transaction.getTc());
 		String orderId = IDGenerator.buildShortOrderNo();
@@ -85,27 +93,30 @@ public class CashServiceJuZhenImpl implements CashService {
 				map.put("signature", sign.result());
 				String msg = this.toMsg(map);
 				Buffer buffer = Buffer.buffer(msg);
-				System.out.println("Query: " + endpoint + ", " + msg);
+				LOGGER.info("Query request: {}, {}", endpoint , msg);
 				WebClient client = WebClient.create(vertx);
 				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
 					if (ar.succeeded()) {
 						HttpResponse<Buffer> response = ar.result();
 						JsonObject body = response.bodyAsJsonObject();
-						body.put("orderId", orderId);
-						System.out.println("Query : "+ body.encode());
-						result.complete(body);
+						LOGGER.info("Query result: {}", body.encode());
+						JsonObject result = new JsonObject();
+						result.put("orderId", orderId);
+						String code = body.getString("respCode");
+						String status = this.handleStatus(code);
+						result.put("status", status);
+						resultHandler.handle(Future.succeededFuture(result));
 					} else {
-						ar.cause().printStackTrace();
-						result.fail(ar.cause());
+						LOGGER.error("postCash failed", ar.cause());
+						resultHandler.handle(Future.failedFuture(ar.cause()));
 					}
 			    });
 			});
 		});
-		return result;
+		return this;
 	}
 	
-	public Future<JsonObject> balance(CashTransaction transaction) {
-		Future<JsonObject> result = Future.future();
+	public CashService balance(CashTransaction transaction, Handler<AsyncResult<JsonObject>> resultHandler) {
 		String storeId = transaction.getChannel().getStoreId();
 		String tradeCode = transaction.getChannel().getTransactionCode(transaction.getTc());
 		String orderId = transaction.getOrderId();
@@ -123,23 +134,23 @@ public class CashServiceJuZhenImpl implements CashService {
 				map.put("signature", sign.result());
 				String msg = this.toMsg(map);
 				Buffer buffer = Buffer.buffer(msg);
-				System.out.println("Balance: " + endpoint + ", " + msg);
+				LOGGER.info("Balance request: {}, {}", endpoint , msg);
 				WebClient client = WebClient.create(vertx);
 				client.postAbs(endpoint).sendBuffer(buffer, ar -> {
 					if (ar.succeeded()) {
 						HttpResponse<Buffer> response = ar.result();
 						JsonObject body = response.bodyAsJsonObject();
 						body.put("orderId", orderId);
-						System.out.println("Balance : "+ body.encode());
-						result.complete(body);
+						LOGGER.info("Balance result: {}", body.encode());
+						resultHandler.handle(Future.succeededFuture(body));
 					} else {
-						ar.cause().printStackTrace();
-						result.fail(ar.cause());
+						LOGGER.error("postCash failed", ar.cause());
+						resultHandler.handle(Future.failedFuture(ar.cause()));
 					}
 			    });
 			});
 		});
-		return result;
+		return this;
 	}
 
 	private void encrypt(final String msgInfo,final String pubKeyUrl,
@@ -218,6 +229,18 @@ public class CashServiceJuZhenImpl implements CashService {
 			msg = sb.substring(0, sb.length() - 1);
 		}
 		return msg;
+	}
+	
+	private String handleStatus(String code) {
+		String status = CashTransaction.SUCCESS;
+		if(code.startsWith("0")) {
+			status = CashTransaction.SUCCESS;
+		} else if(code.startsWith("1")) {
+			status = CashTransaction.ERROR;
+		} else {
+			status = CashTransaction.PENDING;
+		}
+		return status;
 	}
 
 }

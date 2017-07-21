@@ -1,14 +1,15 @@
 package com.xcash.service;
 
-import io.vertx.core.Future;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 
 import com.xcash.entity.CashTransaction;
 
 public interface CashService {
-	Future<JsonObject> postCash(CashTransaction transaction);
+	CashService postCash(CashTransaction transaction, Handler<AsyncResult<JsonObject>> resultHandler);
 	
-	Future<JsonObject> query(CashTransaction transaction);
+	CashService query(CashTransaction transaction, Handler<AsyncResult<JsonObject>> resultHandler);
 	
-	Future<JsonObject> balance(CashTransaction transaction);
+	CashService balance(CashTransaction transaction, Handler<AsyncResult<JsonObject>> resultHandler);
 }

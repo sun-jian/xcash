@@ -6,7 +6,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.asyncsql.PostgreSQLClient;
 import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLClient;
 import io.vertx.ext.sql.SQLConnection;
@@ -26,12 +25,12 @@ public class CashTransactionDAO {
 	private static final String SQL_UPDATE_STATUS = "UPDATE cash_transaction SET status = ?, update_date = now() WHERE order_no = ? AND deleted = false";
 	private static final String SQL_SELECT_ONE = "SELECT order_no, channel, card_num, account_name, bank_name, total_fee, status, update_date FROM cash_transaction WHERE order_no = ? AND deleted = false";
 	
-	public CashTransactionDAO(JsonObject config) {
-		this(Vertx.vertx(), config);
+	public CashTransactionDAO(SQLClient client) {
+		this(Vertx.vertx(), client);
 	}
 
-	public CashTransactionDAO(Vertx vertx, JsonObject config) {
-		this.client = PostgreSQLClient.createShared(vertx, config, "xcash");
+	public CashTransactionDAO(Vertx vertx, SQLClient client) {
+		this.client = client;
 	}
 
 	public CashTransactionDAO insert(CashTransaction transaction, Handler<AsyncResult<Void>> resultHandler) {

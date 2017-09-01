@@ -10,6 +10,7 @@ public class Order {
 	private long appId;
 	private String appKey;
 	private long storeId;
+	private String storeCode;
 	private String storeName;
 	private String updateDate;
 	public String getOrderNo() {
@@ -59,6 +60,12 @@ public class Order {
 	}
 	public void setAppKey(String appKey) {
 		this.appKey = appKey;
+	}
+	public String getStoreCode() {
+		return storeCode;
+	}
+	public void setStoreCode(String storeCode) {
+		this.storeCode = storeCode;
 	}
 	public String getStoreName() {
 		return storeName;

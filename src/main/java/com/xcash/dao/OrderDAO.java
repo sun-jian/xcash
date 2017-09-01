@@ -5,10 +5,13 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.sql.SQLClient;
 import io.vertx.ext.sql.SQLConnection;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -27,7 +30,7 @@ public class OrderDAO {
 	private static final String SQL_SELECT_BY_SELLER_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, update_date from bill_order where seller_order_no = ? and deleted=false";
 	private static final String SQL_SELECT_BY_TARGET_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, update_date from bill_order where target_order_no = ? and deleted=false";
 	private static final String SQL_SELECT_APP_ID = "SELECT app_key from bill_app where id = ?";
-	private static final String SQL_SELECT_STORE_BY_ID = "SELECT name from bill_store where id = ?";
+	private static final String SQL_SELECT_STORE_BY_ID = "SELECT code, name from bill_store where id = ?";
 	
 	
 	public OrderDAO(SQLClient client) {
@@ -83,7 +86,7 @@ public class OrderDAO {
 		return this;
 	}
 	
-	public OrderDAO findStoreNameById(long storeId, Handler<AsyncResult<String>> resultHandler) {
+	public OrderDAO findStoreById(long storeId, Handler<AsyncResult<JsonObject>> resultHandler) {
 		client.getConnection(car -> {
 			if (car.succeeded()) {
 				SQLConnection connection = car.result();
@@ -91,14 +94,15 @@ public class OrderDAO {
 				connection.queryWithParams(SQL_SELECT_STORE_BY_ID, data, res -> {
 					connection.close();
 					if (res.succeeded()) {
-						String name = "";
+						JsonObject jsonObj = new JsonObject();
 						ResultSet resultSet = res.result();
 						
 			            if (resultSet.getNumRows() > 0) {
 			            	JsonArray row = resultSet.getResults().get(0);
-			            	name = row.getString(0);
+			            	jsonObj.put("code", row.getString(0));
+			            	jsonObj.put("name", row.getString(1));
 			            }
-			            resultHandler.handle(Future.succeededFuture(name));
+			            resultHandler.handle(Future.succeededFuture(jsonObj));
 					} else {
 						LOGGER.error("UpdateStatus error", res.cause());
 						resultHandler.handle(Future.failedFuture(res.cause()));
@@ -152,7 +156,8 @@ public class OrderDAO {
     	order.setStatus(row.getString(5));
     	order.setAppId(row.getLong(6));
     	order.setStoreId(row.getLong(7));
-    	order.setUpdateDate(row.getString(8));
+    	LocalDateTime ldt = LocalDateTime.ofInstant(row.getInstant(8), ZoneId.systemDefault());
+    	order.setUpdateDate(ldt.toString());
     	return order;
 	}
 

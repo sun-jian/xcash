@@ -31,6 +31,7 @@ import com.xcash.entity.Order;
 import com.xcash.entity.TransactionCode;
 import com.xcash.service.CashService;
 import com.xcash.service.CashServiceJuZhenImpl;
+import com.xcash.service.XpayService;
 import com.xcash.util.Runner;
 
 public class CashVerticle extends AbstractVerticle {
@@ -42,6 +43,7 @@ public class CashVerticle extends AbstractVerticle {
 	private CashService service;
 	private CashTransactionDAO cashDao;
 	private OrderDAO orderDao;
+	private XpayService xpayService;
 	
 	  // Convenience method so you can run it in your IDE
 	  public static void main(String[] args) {
@@ -74,9 +76,10 @@ public class CashVerticle extends AbstractVerticle {
 		router.post("/xcash/v1/balance").handler(this::handleBalance);
 		router.post("/xcash/notify/:channel").handler(this::handleNotify);
 		router.get("/xcash/order").handler(this::handleQueryOrder);
-		router.get("/xcash/refund").handler(this::handleRefund);
+		router.delete("/xcash/refund").handler(this::handleRefund);
 		
 		service = new CashServiceJuZhenImpl(vertx);
+		xpayService = new XpayService(vertx);
 		JsonObject dbConfig = new JsonObject().put("host", "127.0.0.1").put("port", 5432).put("maxPoolSize",10).put("username", "xpay").put("password", "").put("database", "xpay");
 		SQLClient sqlClient = PostgreSQLClient.createShared(vertx, dbConfig, "xcash");
 		this.cashDao = new CashTransactionDAO(vertx, sqlClient);
@@ -196,23 +199,6 @@ public class CashVerticle extends AbstractVerticle {
 		});
 	}
 	
-	private void handleRefund(RoutingContext context) {
-		JsonObject body = context.getBodyAsJson();
-		if (body == null) {
-			badRequest(context);
-		    return;
-		}
-		CashTransaction transaction = new CashTransaction(body);
-		transaction.setTc(TransactionCode.BALANCE);
-		if (!transaction.isValid()) {
-			badRequest(context);
-		    return;
-		}
-		service.balance(transaction, res -> {
-			handleResponse(context, res);
-		 });
-	 }
-	
 	private void handleQueryOrder(RoutingContext context) {
 		String orderNo = context.request().getParam("orderNo");
 		String sellerOrderNo = context.request().getParam("sellerOrderNo");
@@ -233,8 +219,9 @@ public class CashVerticle extends AbstractVerticle {
 				});
 				
 				Future<Void> fut2 = Future.future();
-				orderDao.findStoreNameById(order.getStoreId(), storeName -> {
-					order.setStoreName(storeName.result());
+				orderDao.findStoreById(order.getStoreId(), store -> {
+					order.setStoreCode(store.result().getString("code"));
+					order.setStoreName(store.result().getString("name"));
 					fut2.complete();
 				});
 				CompositeFuture.join(fut1,fut2).setHandler( ar -> {
@@ -259,8 +246,64 @@ public class CashVerticle extends AbstractVerticle {
 		} else if(StringUtils.isNotBlank(targetOrderNo)) {
 			orderDao.findByTargetOrderNo(targetOrderNo, resultHandler);
 		}
-	 }
+	}
 	
+	private void handleRefund(RoutingContext context) {
+		String orderNo = context.request().getParam("orderNo");
+		String sellerOrderNo = context.request().getParam("sellerOrderNo");
+		String extOrderNo = context.request().getParam("extOrderNo");
+		String targetOrderNo = context.request().getParam("targetOrderNo");
+		if(StringUtils.isBlank(orderNo) && StringUtils.isBlank(sellerOrderNo) && StringUtils.isBlank(extOrderNo) && StringUtils.isBlank(targetOrderNo)) {
+			badRequest(context);
+		    return;
+		}
+		Handler<AsyncResult<Optional<Order>>> resultHandler = dbRes -> {
+			if(dbRes.succeeded() && dbRes.result().isPresent()) {
+				Order order = dbRes.result().get();
+				
+				Future<Void> fut1 = Future.future();
+				orderDao.findAppId(order.getAppId(), appKey -> {
+					order.setAppKey(appKey.result());
+					fut1.complete();
+				});
+				
+				Future<Void> fut2 = Future.future();
+				orderDao.findStoreById(order.getStoreId(), store -> {
+					order.setStoreCode(store.result().getString("code"));
+					order.setStoreName(store.result().getString("name"));
+					fut2.complete();
+				});
+				CompositeFuture.join(fut1,fut2).setHandler( ar -> {
+					if (ar.succeeded()) {
+						xpayService.refund(order, rf -> {
+							if (rf.succeeded() && rf.result().getInteger("orderStatus", 0) == 1) {
+								order.setStatus("REFUND");
+								JsonObject jsonObject = new JsonObject(Json.encode(order));
+								success(context,jsonObject);
+							} else {
+								serverError(context, rf.cause());
+							}
+							
+						});
+					} else {
+						serverError(context, ar.cause());
+					}
+				});
+			} else {
+				serverError(context, dbRes.cause());
+			}
+		};
+		
+		if(StringUtils.isNotBlank(orderNo)) {
+			orderDao.findByOrderNo(orderNo, resultHandler);
+		} else if(StringUtils.isNotBlank(sellerOrderNo)) {
+			orderDao.findBySellerOrderNo(sellerOrderNo, resultHandler);
+		} else if(StringUtils.isNotBlank(extOrderNo)) {
+			orderDao.findByExtOrderNo(extOrderNo, resultHandler);
+		} else if(StringUtils.isNotBlank(targetOrderNo)) {
+			orderDao.findByTargetOrderNo(targetOrderNo, resultHandler);
+		}
+	 }
 
 
 	private void handleResponse(RoutingContext context,

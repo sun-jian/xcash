@@ -42,7 +42,12 @@ public class XpayService {
 					if(dr.succeeded()) {
 						HttpResponse<Buffer> refundRes = dr.result();
 						JsonObject refundJson = refundRes.bodyAsJsonObject();
-						resultHandler.handle(Future.succeededFuture(refundJson.getJsonObject("data")));
+						int status = refundJson.getInteger("status");
+						if(200 == status) {
+							resultHandler.handle(Future.succeededFuture(refundJson.getJsonObject("data")));
+						} else {
+							resultHandler.handle(Future.failedFuture(refundJson.getString("message")));
+						}
 					} else {
 						LOGGER.error("refund failed", dr.cause());
 						resultHandler.handle(Future.failedFuture(dr.cause()));

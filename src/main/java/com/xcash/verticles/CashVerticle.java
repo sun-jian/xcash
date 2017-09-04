@@ -281,7 +281,11 @@ public class CashVerticle extends AbstractVerticle {
 								JsonObject jsonObject = new JsonObject(Json.encode(order));
 								success(context,jsonObject);
 							} else {
-								serverError(context, rf.cause());
+								if(rf.result()!=null) {
+									serverError(context, rf.result().getString("message"));
+								} else {
+									serverError(context, rf.cause());
+								}
 							}
 							
 						});
@@ -324,9 +328,13 @@ public class CashVerticle extends AbstractVerticle {
 	}
 	  
 	private void serverError(RoutingContext context, Throwable cause) {
-		context.response().setStatusCode(500).end();
+		context.response().setStatusCode(500).end(cause.getMessage());
 	}
 
+	private void serverError(RoutingContext context, String message) {
+		context.response().setStatusCode(500).end(message);
+	}
+	
 	private void badRequest(RoutingContext context) {
 	    context.response().setStatusCode(400).end();
 	}

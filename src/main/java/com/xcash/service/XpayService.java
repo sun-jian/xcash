@@ -40,7 +40,9 @@ public class XpayService {
 				String refundUrl = REFUND_PATH.replace("{orderNo}", order.getOrderNo()).replace("{storeId}", order.getStoreCode());
 				client.deleteAbs(refundUrl).putHeader("Access_token", token).send(dr -> {
 					if(dr.succeeded()) {
-						resultHandler.handle(Future.succeededFuture(dr.result().bodyAsJsonObject()));
+						HttpResponse<Buffer> refundRes = dr.result();
+						JsonObject refundJson = refundRes.bodyAsJsonObject();
+						resultHandler.handle(Future.succeededFuture(refundJson.getJsonObject("data")));
 					} else {
 						LOGGER.error("refund failed", dr.cause());
 						resultHandler.handle(Future.failedFuture(dr.cause()));

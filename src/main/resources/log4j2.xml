@@ -6,7 +6,7 @@
 		</Console>
 		
 		<RollingFile name="ApplicationLogFile"
-			fileName="/var/log/xcash/xcash.log" filePattern="var/logs/xcash/xpay.log.%d{yyyy-MM-dd}">
+			fileName="/var/log/xcash/xcash.log" filePattern="/var/logs/xcash/xcash.log.%d{yyyy-MM-dd}">
 			<PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36}:%L - %msg%n" />
 			<Policies>
 				<TimeBasedTriggeringPolicy interval="1"

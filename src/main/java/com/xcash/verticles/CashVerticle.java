@@ -229,7 +229,7 @@ public class CashVerticle extends AbstractVerticle {
 						JsonObject jsonObject = new JsonObject(Json.encode(order));
 						success(context,jsonObject);
 					} else {
-						serverError(context, dbRes.cause());
+						serverError(context, ar.cause());
 					}
 				});
 			} else {
@@ -328,7 +328,8 @@ public class CashVerticle extends AbstractVerticle {
 	}
 	  
 	private void serverError(RoutingContext context, Throwable cause) {
-		context.response().setStatusCode(500).end(cause.getMessage());
+		String message = cause == null? "Order not found":cause.getMessage();
+		context.response().setStatusCode(500).end(message);
 	}
 
 	private void serverError(RoutingContext context, String message) {

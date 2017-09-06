@@ -224,7 +224,15 @@ public class CashVerticle extends AbstractVerticle {
 					order.setStoreName(store.result().getString("name"));
 					fut2.complete();
 				});
-				CompositeFuture.join(fut1,fut2).setHandler( ar -> {
+				
+				Future<Void> fut3 = Future.future();
+				orderDao.findChannelById(order.getChannelId(), channel -> {
+					order.setExtStoreId(channel.result().getString("extStoreId"));
+					order.setPaymentGateway(channel.result().getString("paymentGateway"));
+					fut3.complete();
+				});
+				
+				CompositeFuture.join(fut1,fut2, fut3).setHandler( ar -> {
 					if (ar.succeeded()) {
 						JsonObject jsonObject = new JsonObject(Json.encode(order));
 						success(context,jsonObject);

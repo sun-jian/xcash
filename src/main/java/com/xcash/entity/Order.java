@@ -10,6 +10,10 @@ public class Order {
 	private long appId;
 	private String appKey;
 	private long storeId;
+	private long channelId;
+	private String extStoreId;
+	private String paymentGateway;
+	private String paymentGatewayName;
 	private String storeCode;
 	private String storeName;
 	private String updateDate;
@@ -84,5 +88,36 @@ public class Order {
 	}
 	public void setUpdateDate(String updateDate) {
 		this.updateDate = updateDate;
+	}
+	public long getChannelId() {
+		return channelId;
+	}
+	public void setChannelId(long channelId) {
+		this.channelId = channelId;
+	}
+	public String getExtStoreId() {
+		return extStoreId;
+	}
+	public void setExtStoreId(String extStoreId) {
+		this.extStoreId = extStoreId;
+	}
+	public String getPaymentGateway() {
+		return paymentGateway;
+	}
+	public void setPaymentGateway(String paymentGateway) {
+		this.paymentGateway = paymentGateway;
+		if("CHINAUMS".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商悦单";
+		} else if("CHINAUMSV2".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商C扫B";
+		} else if("JUZHEN".equals(paymentGateway)) {
+			this.paymentGatewayName = "钜真";
+		}
+	}
+	public String getPaymentGatewayName() {
+		return paymentGatewayName;
+	}
+	public void setPaymentGatewayName(String paymentGatewayName) {
+		this.paymentGatewayName = paymentGatewayName;
 	}
 }

@@ -25,12 +25,13 @@ public class OrderDAO {
 	
 	private final SQLClient client;
 
-	private static final String SQL_SELECT_BY_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, update_date from bill_order where order_no = ? and deleted=false";
-	private static final String SQL_SELECT_BY_EXT_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, update_date from bill_order where ext_order_no = ? and deleted=false";
-	private static final String SQL_SELECT_BY_SELLER_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, update_date from bill_order where seller_order_no = ? and deleted=false";
-	private static final String SQL_SELECT_BY_TARGET_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, update_date from bill_order where target_order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_EXT_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where ext_order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_SELLER_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where seller_order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_TARGET_ORDER_NO = "SELECT order_no, ext_order_no, seller_order_no, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where target_order_no = ? and deleted=false";
 	private static final String SQL_SELECT_APP_ID = "SELECT app_key from bill_app where id = ?";
 	private static final String SQL_SELECT_STORE_BY_ID = "SELECT code, name from bill_store where id = ?";
+	private static final String SQL_SELECT_CHANNEL_BY_ID = "SELECT ext_store_id, payment_gateway from bill_store_channel where id = ?";
 	
 	
 	public OrderDAO(SQLClient client) {
@@ -116,6 +117,36 @@ public class OrderDAO {
 		return this;
 	}
 	
+	public OrderDAO findChannelById(long channelId, Handler<AsyncResult<JsonObject>> resultHandler) {
+		client.getConnection(car -> {
+			if (car.succeeded()) {
+				SQLConnection connection = car.result();
+				JsonArray data = new JsonArray().add(channelId);
+				connection.queryWithParams(SQL_SELECT_CHANNEL_BY_ID, data, res -> {
+					connection.close();
+					if (res.succeeded()) {
+						JsonObject jsonObj = new JsonObject();
+						ResultSet resultSet = res.result();
+						
+			            if (resultSet.getNumRows() > 0) {
+			            	JsonArray row = resultSet.getResults().get(0);
+			            	jsonObj.put("extStoreId", row.getString(0));
+			            	jsonObj.put("paymentGateway", row.getString(1));
+			            }
+			            resultHandler.handle(Future.succeededFuture(jsonObj));
+					} else {
+						LOGGER.error("UpdateStatus error", res.cause());
+						resultHandler.handle(Future.failedFuture(res.cause()));
+					}
+				});
+			} else {
+				LOGGER.error("UpdateStatus error", car.cause());
+				resultHandler.handle(Future.failedFuture(car.cause()));
+			}
+		});
+		return this;
+	}
+	
 	
 	private OrderDAO findOrder(String sql, String orderNo, Handler<AsyncResult<Optional<Order>>> resultHandler) {
 		client.getConnection(car -> {
@@ -156,7 +187,8 @@ public class OrderDAO {
     	order.setStatus(row.getString(5));
     	order.setAppId(row.getLong(6));
     	order.setStoreId(row.getLong(7));
-    	LocalDateTime ldt = LocalDateTime.ofInstant(row.getInstant(8), ZoneId.systemDefault());
+    	order.setChannelId(row.getLong(8));
+    	LocalDateTime ldt = LocalDateTime.ofInstant(row.getInstant(9), ZoneId.systemDefault());
     	order.setUpdateDate(ldt.toString());
     	return order;
 	}

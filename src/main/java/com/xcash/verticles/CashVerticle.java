@@ -6,7 +6,9 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.asyncsql.PostgreSQLClient;
 import io.vertx.ext.sql.SQLClient;
@@ -16,6 +18,8 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -25,9 +29,12 @@ import org.slf4j.LoggerFactory;
 
 import com.xcash.dao.CashTransactionDAO;
 import com.xcash.dao.OrderDAO;
+import com.xcash.dao.StoreDAO;
 import com.xcash.entity.CashTransaction;
 import com.xcash.entity.Channel;
 import com.xcash.entity.Order;
+import com.xcash.entity.Store;
+import com.xcash.entity.StoreChannel;
 import com.xcash.entity.TransactionCode;
 import com.xcash.service.CashService;
 import com.xcash.service.CashServiceJuZhenImpl;
@@ -43,6 +50,7 @@ public class CashVerticle extends AbstractVerticle {
 	private CashService service;
 	private CashTransactionDAO cashDao;
 	private OrderDAO orderDao;
+	private StoreDAO storeDao;
 	private XpayService xpayService;
 	
 	  // Convenience method so you can run it in your IDE
@@ -77,6 +85,10 @@ public class CashVerticle extends AbstractVerticle {
 		router.post("/xcash/notify/:channel").handler(this::handleNotify);
 		router.get("/xcash/order").handler(this::handleQueryOrder);
 		router.delete("/xcash/refund").handler(this::handleRefund);
+		router.post("/xcash/store").handler(this::handleCreateStore);
+		router.get("/xcash/stores").handler(this::handleGetStore);
+		router.post("/xcash/files").handler(this::handleFileUpload);
+		
 		
 		service = new CashServiceJuZhenImpl(vertx);
 		xpayService = new XpayService(vertx);
@@ -84,6 +96,7 @@ public class CashVerticle extends AbstractVerticle {
 		SQLClient sqlClient = PostgreSQLClient.createShared(vertx, dbConfig, "xcash");
 		this.cashDao = new CashTransactionDAO(vertx, sqlClient);
 		this.orderDao = new OrderDAO(vertx, sqlClient);
+		this.storeDao = new StoreDAO(vertx, sqlClient);
 		vertx.createHttpServer()
 				.requestHandler(router::accept)
 				.listen(config().getInteger("http.port", PORT),
@@ -316,6 +329,123 @@ public class CashVerticle extends AbstractVerticle {
 			orderDao.findByTargetOrderNo(targetOrderNo, resultHandler);
 		}
 	 }
+	
+	private void handleCreateStore(RoutingContext context) {
+		String orderNo = context.request().getParam("orderNo");
+		String sellerOrderNo = context.request().getParam("sellerOrderNo");
+		String extOrderNo = context.request().getParam("extOrderNo");
+		String targetOrderNo = context.request().getParam("targetOrderNo");
+		if(StringUtils.isBlank(orderNo) && StringUtils.isBlank(sellerOrderNo) && StringUtils.isBlank(extOrderNo) && StringUtils.isBlank(targetOrderNo)) {
+			badRequest(context);
+		    return;
+		}
+		Handler<AsyncResult<Optional<Order>>> resultHandler = dbRes -> {
+			if(dbRes.succeeded() && dbRes.result().isPresent()) {
+				Order order = dbRes.result().get();
+				
+				Future<Void> fut1 = Future.future();
+				orderDao.findAppId(order.getAppId(), appKey -> {
+					order.setAppKey(appKey.result());
+					fut1.complete();
+				});
+				
+				Future<Void> fut2 = Future.future();
+				orderDao.findStoreById(order.getStoreId(), store -> {
+					order.setStoreCode(store.result().getString("code"));
+					order.setStoreName(store.result().getString("name"));
+					fut2.complete();
+				});
+				CompositeFuture.join(fut1,fut2).setHandler( ar -> {
+					if (ar.succeeded()) {
+						xpayService.refund(order, rf -> {
+							if (rf.succeeded() && rf.result().getInteger("orderStatus", 0) == 1) {
+								order.setStatus("REFUND");
+								JsonObject jsonObject = new JsonObject(Json.encode(order));
+								success(context,jsonObject);
+							} else {
+								if(rf.result()!=null) {
+									serverError(context, rf.result().getString("message"));
+								} else {
+									serverError(context, rf.cause());
+								}
+							}
+							
+						});
+					} else {
+						serverError(context, ar.cause());
+					}
+				});
+			} else {
+				serverError(context, dbRes.cause());
+			}
+		};
+		
+		if(StringUtils.isNotBlank(orderNo)) {
+			orderDao.findByOrderNo(orderNo, resultHandler);
+		} else if(StringUtils.isNotBlank(sellerOrderNo)) {
+			orderDao.findBySellerOrderNo(sellerOrderNo, resultHandler);
+		} else if(StringUtils.isNotBlank(extOrderNo)) {
+			orderDao.findByExtOrderNo(extOrderNo, resultHandler);
+		} else if(StringUtils.isNotBlank(targetOrderNo)) {
+			orderDao.findByTargetOrderNo(targetOrderNo, resultHandler);
+		}
+	 }
+	
+	private void handleGetStore(RoutingContext context) {
+		storeDao.findAllStoreChannels(dbRes -> {
+			if(dbRes.succeeded() && dbRes.result().isPresent()) {
+				Map<Long, List<StoreChannel>> channelMap = dbRes.result().get();
+				
+				this.storeDao.findAllStores(storeRes -> {
+					if(storeRes.succeeded() && storeRes.result().isPresent()) {
+						List<Store> stores = storeRes.result().get();
+						
+						for(Store store: stores) {
+							store.setChannels(channelMap.get(store.getId()));
+							store.setBailStoreChannels(channelMap.get(store.getBailStoreId()));
+						}
+						success(context,new JsonArray(stores));
+					} else {
+						serverError(context, storeRes.cause());
+					}
+				});
+			} else {
+				serverError(context, dbRes.cause());
+			}
+		});
+		
+		Handler<AsyncResult<Optional<List<Store>>>> resultHandler = dbRes -> {
+			if(dbRes.succeeded() && dbRes.result().isPresent()) {
+				List<Store> stores = dbRes.result().get();
+				Future<Void> fut1 = Future.future();
+				
+				fut1.setHandler( ar -> {
+					if (ar.succeeded()) {
+						JsonObject jsonObject = JsonObject.mapFrom(stores);
+						success(context,jsonObject);
+					} else {
+						serverError(context, ar.cause());
+					}
+				});
+			}
+		};
+		
+		this.storeDao.findAllStores(resultHandler);
+	 }
+	
+	private void handleFileUpload(RoutingContext context) {
+		HttpServerRequest req = context.request();
+		req.setExpectMultipart(true);
+		req.uploadHandler(upload -> {
+			upload.exceptionHandler(cause -> {
+				req.response().setChunked(true).end("Upload failed");
+        });
+
+        upload.endHandler(v -> {
+          req.response().setChunked(true).end("Successfully uploaded to " + upload.filename());
+        });
+      });
+    }
 
 
 	private void handleResponse(RoutingContext context,
@@ -351,4 +481,7 @@ public class CashVerticle extends AbstractVerticle {
 	private void success(RoutingContext context, JsonObject response) {
 	  context.response().putHeader("content-type", "application/json").end(response.encodePrettily());
 	}
+	private void success(RoutingContext context, JsonArray response) {
+		  context.response().putHeader("content-type", "application/json").end(response.encodePrettily());
+		}
 }

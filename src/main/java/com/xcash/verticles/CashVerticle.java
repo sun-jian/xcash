@@ -87,6 +87,7 @@ public class CashVerticle extends AbstractVerticle {
 		router.delete("/xcash/refund").handler(this::handleRefund);
 		router.post("/xcash/store").handler(this::handleCreateStore);
 		router.get("/xcash/stores").handler(this::handleGetStore);
+		router.get("/xcash/stores/:storeNo").handler(this::handleTestStore);
 		router.post("/xcash/files").handler(this::handleFileUpload);
 		
 		
@@ -431,6 +432,18 @@ public class CashVerticle extends AbstractVerticle {
 		};
 		
 		this.storeDao.findAllStores(resultHandler);
+	 }
+	
+	private void handleTestStore(RoutingContext context) {
+		String storeNo = context.request().getParam("storeNo");
+		String appKey = context.request().getParam("appKey");
+		xpayService.unifierOrder(storeNo, appKey, dbRes -> {
+			if(dbRes.succeeded() && dbRes.result() != null) {
+				success(context, dbRes.result());
+			} else {
+				serverError(context, dbRes.cause());
+			}
+		});
 	 }
 	
 	private void handleFileUpload(RoutingContext context) {

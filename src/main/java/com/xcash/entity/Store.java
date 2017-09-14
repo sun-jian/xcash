@@ -1,5 +1,7 @@
 package com.xcash.entity;
 
+import io.vertx.core.json.JsonObject;
+
 import java.util.List;
 
 
@@ -8,7 +10,7 @@ public class Store {
 	private String code;
 	private String name;
 	private int bailPercentage;
-	private long bailStoreId;
+	private String bailChannelList;
 	private List<StoreChannel> bailStoreChannels;
 	private long appId;
 	private String appKey;
@@ -16,6 +18,25 @@ public class Store {
 	private long dailyLimit;
 	private String updateDate;
 	private List<StoreChannel> channels;
+	private String channelList;
+	
+	public Store() {
+		
+	}
+	
+	public Store(JsonObject jsonObj) {
+		this.id = jsonObj.getLong("id");
+		this.code = jsonObj.getString("code");
+		this.name = jsonObj.getString("name");
+		this.bailPercentage = jsonObj.getInteger("bailPercentage");
+		this.bailChannelList = jsonObj.getString("bailChannelList");
+		this.appId = jsonObj.getLong("appId");
+		this.appKey = jsonObj.getString("appKey");
+		this.appSecret = jsonObj.getString("appSecret");
+		this.dailyLimit = jsonObj.getInteger("dailyLimit");
+		this.channelList = jsonObj.getString("channelList"); 
+	}
+	
 	public long getId() {
 		return id;
 	}
@@ -39,12 +60,6 @@ public class Store {
 	}
 	public void setBailPercentage(int bailPercentage) {
 		this.bailPercentage = bailPercentage;
-	}
-	public long getBailStoreId() {
-		return bailStoreId;
-	}
-	public void setBailStoreId(long bailStoreId) {
-		this.bailStoreId = bailStoreId;
 	}
 	public List<StoreChannel> getBailStoreChannels() {
 		return bailStoreChannels;
@@ -87,5 +102,24 @@ public class Store {
 	}
 	public void setChannels(List<StoreChannel> channels) {
 		this.channels = channels;
+	}
+	public String getBailChannelList() {
+		return bailChannelList;
+	}
+	public void setBailChannelList(String bailChannelList) {
+		this.bailChannelList = bailChannelList;
+	}
+	public String getChannelList() {
+		return channelList;
+	}
+	public void setChannelList(String channelList) {
+		this.channelList = channelList;
+	}
+	
+	public JsonObject toJson() {
+		JsonObject json = JsonObject.mapFrom(this);
+		json.remove("channelList");
+		json.remove("bailChannelList");
+		return json;
 	}
 }

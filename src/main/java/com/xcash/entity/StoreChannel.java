@@ -1,10 +1,18 @@
 package com.xcash.entity;
 
 public class StoreChannel {
+	private long id;
 	private String extStoreId;
 	private String paymentGateway;
 	private String paymentGatewayName;
 	private String billType;
+	
+	public long getId() {
+		return id;
+	}
+	public void setId(long id) {
+		this.id = id;
+	}
 	public String getExtStoreId() {
 		return extStoreId;
 	}

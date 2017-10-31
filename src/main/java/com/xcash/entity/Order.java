@@ -3,7 +3,7 @@ package com.xcash.entity;
 public class Order {
 	private String orderNo;
 	private String extOrderNo;
-	private String sellerOrderNo;
+	private String returnUrl;
 	private String targetOrderNo;
 	private String totalFee;
 	private String status;
@@ -29,11 +29,11 @@ public class Order {
 	public void setExtOrderNo(String extOrderNo) {
 		this.extOrderNo = extOrderNo;
 	}
-	public String getSellerOrderNo() {
-		return sellerOrderNo;
+	public String getReturnUrl() {
+		return returnUrl;
 	}
-	public void setSellerOrderNo(String sellerOrderNo) {
-		this.sellerOrderNo = sellerOrderNo;
+	public void setReturnUrl(String returnUrl) {
+		this.returnUrl = returnUrl;
 	}
 	public String getTargetOrderNo() {
 		return targetOrderNo;

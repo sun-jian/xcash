@@ -2,6 +2,7 @@ package com.xcash.entity;
 
 public class Order {
 	private String orderNo;
+	private String sellerOrderNo;
 	private String extOrderNo;
 	private String returnUrl;
 	private String targetOrderNo;
@@ -22,6 +23,12 @@ public class Order {
 	}
 	public void setOrderNo(String orderNo) {
 		this.orderNo = orderNo;
+	}
+	public String getSellerOrderNo() {
+		return sellerOrderNo;
+	}
+	public void setSellerOrderNo(String sellerOrderNo) {
+		this.sellerOrderNo = sellerOrderNo;
 	}
 	public String getExtOrderNo() {
 		return extOrderNo;

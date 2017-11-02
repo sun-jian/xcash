@@ -25,10 +25,10 @@ public class OrderDAO {
 	
 	private final SQLClient client;
 
-	private static final String SQL_SELECT_BY_ORDER_NO = "SELECT order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where order_no = ? and deleted=false";
-	private static final String SQL_SELECT_BY_EXT_ORDER_NO = "SELECT order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where ext_order_no = ? and deleted=false";
-	private static final String SQL_SELECT_BY_SELLER_ORDER_NO = "SELECT order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where seller_order_no = ? and deleted=false";
-	private static final String SQL_SELECT_BY_TARGET_ORDER_NO = "SELECT order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where target_order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_ORDER_NO = "SELECT order_no, seller_order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_EXT_ORDER_NO = "SELECT order_no, seller_order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where ext_order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_SELLER_ORDER_NO = "SELECT order_no, seller_order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where seller_order_no = ? and deleted=false";
+	private static final String SQL_SELECT_BY_TARGET_ORDER_NO = "SELECT order_no, seller_order_no, ext_order_no, return_url, target_order_no, total_fee, status, app_id, store_id, store_channel, update_date from bill_order where target_order_no = ? and deleted=false";
 	private static final String SQL_SELECT_APP_ID = "SELECT app_key from bill_app where id = ?";
 	private static final String SQL_SELECT_STORE_BY_ID = "SELECT code, name from bill_store where id = ?";
 	private static final String SQL_SELECT_CHANNEL_BY_ID = "SELECT ext_store_id, payment_gateway from bill_store_channel where id = ?";
@@ -180,15 +180,16 @@ public class OrderDAO {
 	private Order toOrder(JsonArray row) {
 		Order order = new Order();
 		order.setOrderNo(row.getString(0));
-    	order.setExtOrderNo(row.getString(1));
-    	order.setReturnUrl(row.getString(2));
-    	order.setTargetOrderNo(row.getString(3));
-    	order.setTotalFee(row.getString(4));
-    	order.setStatus(row.getString(5));
-    	order.setAppId(row.getLong(6));
-    	order.setStoreId(row.getLong(7));
-    	order.setChannelId(row.getLong(8));
-    	LocalDateTime ldt = LocalDateTime.ofInstant(row.getInstant(9), ZoneId.systemDefault());
+		order.setSellerOrderNo(row.getString(1));
+    	order.setExtOrderNo(row.getString(2));
+    	order.setReturnUrl(row.getString(3));
+    	order.setTargetOrderNo(row.getString(4));
+    	order.setTotalFee(row.getString(5));
+    	order.setStatus(row.getString(6));
+    	order.setAppId(row.getLong(7));
+    	order.setStoreId(row.getLong(8));
+    	order.setChannelId(row.getLong(9));
+    	LocalDateTime ldt = LocalDateTime.ofInstant(row.getInstant(10), ZoneId.systemDefault());
     	order.setUpdateDate(ldt.toString());
     	return order;
 	}

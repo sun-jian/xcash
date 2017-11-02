@@ -119,6 +119,12 @@ public class Order {
 			this.paymentGatewayName = "银商C扫B";
 		} else if("JUZHEN".equals(paymentGateway)) {
 			this.paymentGatewayName = "钜真";
+		} else if("CHINAUMSH5".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商H5";
+		} else if("CHINAUMSWAP".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商H5";
+		} else if("UPAY".equals(paymentGateway)) {
+			this.paymentGatewayName = "收钱吧H5";
 		}
 	}
 	public String getPaymentGatewayName() {

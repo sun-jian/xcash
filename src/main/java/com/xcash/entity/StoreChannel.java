@@ -1,10 +1,18 @@
 package com.xcash.entity;
 
 public class StoreChannel {
+	private long id;
 	private String extStoreId;
 	private String paymentGateway;
 	private String paymentGatewayName;
 	private String billType;
+	
+	public long getId() {
+		return id;
+	}
+	public void setId(long id) {
+		this.id = id;
+	}
 	public String getExtStoreId() {
 		return extStoreId;
 	}
@@ -22,6 +30,12 @@ public class StoreChannel {
 			this.paymentGatewayName = "银商C扫B";
 		} else if("JUZHEN".equals(paymentGateway)) {
 			this.paymentGatewayName = "钜真";
+		} else if("CHINAUMSH5".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商H5";
+		} else if("CHINAUMSWAP".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商H5";
+		} else if("UPAY".equals(paymentGateway)) {
+			this.paymentGatewayName = "收钱吧H5";
 		}
 	}public String getPaymentGatewayName() {
 		return paymentGatewayName;

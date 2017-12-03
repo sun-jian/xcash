@@ -17,6 +17,8 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +88,7 @@ public class CashVerticle extends AbstractVerticle {
 		router.get("/xcash/order").handler(this::handleQueryOrder);
 		router.delete("/xcash/refund").handler(this::handleRefund);
 		router.post("/xcash/store").handler(this::handleCreateStore);
+		router.patch("/xcash/store").handler(this::handleUpdateStore);
 		router.get("/xcash/stores").handler(this::handleGetStore);
 		router.get("/xcash/stores/:storeNo").handler(this::handleTestStore);
 		router.post("/xcash/files").handler(this::handleFileUpload);
@@ -394,16 +397,20 @@ public class CashVerticle extends AbstractVerticle {
 	
 	private void handleGetStore(RoutingContext context) {
 		storeDao.findAllStoreChannels(dbRes -> {
-			if(dbRes.succeeded() && dbRes.result().isPresent()) {
-				Map<Long, List<StoreChannel>> channelMap = dbRes.result().get();
+			if(dbRes.succeeded() && dbRes.result()!=null) {
 				
+				Map<String, StoreChannel> channelMap = new HashMap<String, StoreChannel>();
+				List<StoreChannel> channels = dbRes.result();
+				for(StoreChannel channel : channels) {
+					channelMap.put(String.valueOf(channel.getId()), channel);
+				}
 				this.storeDao.findAllStores(storeRes -> {
 					if(storeRes.succeeded() && storeRes.result().isPresent()) {
 						List<Store> stores = storeRes.result().get();
 						
 						for(Store store: stores) {
-							store.setChannels(channelMap.get(store.getId()));
-							store.setBailStoreChannels(channelMap.get(store.getBailStoreId()));
+							store.setChannels(this.findChannels(channelMap, store.getChannelList()));
+							store.setBailStoreChannels(this.findChannels(channelMap, store.getBailChannelList()));
 						}
 						success(context,new JsonArray(stores));
 					} else {
@@ -434,6 +441,15 @@ public class CashVerticle extends AbstractVerticle {
 		this.storeDao.findAllStores(resultHandler);
 	 }
 	
+	private List<StoreChannel> findChannels(Map<String, StoreChannel> map, String strList) {
+		String[] ids = strList.split(",");
+		List<StoreChannel> channels = new ArrayList<StoreChannel>();
+		for(String id: ids) {
+			channels.add(map.get(id));
+		}
+		return channels;
+	}
+	
 	private void handleTestStore(RoutingContext context) {
 		String storeNo = context.request().getParam("storeNo");
 		String appKey = context.request().getParam("appKey");
@@ -442,6 +458,19 @@ public class CashVerticle extends AbstractVerticle {
 				success(context, dbRes.result());
 			} else {
 				serverError(context, dbRes.cause());
+			}
+		});
+	 }
+	
+	private void handleUpdateStore(RoutingContext context) {
+		JsonObject body = context.getBodyAsJson();
+		Store store = new Store(body);
+		
+		storeDao.updateStore(store, res -> {
+			if(res.succeeded() && res.result().isPresent()) {
+				success(context, res.result().get().toJson());
+			} else {
+				serverError(context, res.cause());
 			}
 		});
 	 }

@@ -2,8 +2,9 @@ package com.xcash.entity;
 
 public class Order {
 	private String orderNo;
-	private String extOrderNo;
 	private String sellerOrderNo;
+	private String extOrderNo;
+	private String returnUrl;
 	private String targetOrderNo;
 	private String totalFee;
 	private String status;
@@ -23,17 +24,23 @@ public class Order {
 	public void setOrderNo(String orderNo) {
 		this.orderNo = orderNo;
 	}
+	public String getSellerOrderNo() {
+		return sellerOrderNo;
+	}
+	public void setSellerOrderNo(String sellerOrderNo) {
+		this.sellerOrderNo = sellerOrderNo;
+	}
 	public String getExtOrderNo() {
 		return extOrderNo;
 	}
 	public void setExtOrderNo(String extOrderNo) {
 		this.extOrderNo = extOrderNo;
 	}
-	public String getSellerOrderNo() {
-		return sellerOrderNo;
+	public String getReturnUrl() {
+		return returnUrl;
 	}
-	public void setSellerOrderNo(String sellerOrderNo) {
-		this.sellerOrderNo = sellerOrderNo;
+	public void setReturnUrl(String returnUrl) {
+		this.returnUrl = returnUrl;
 	}
 	public String getTargetOrderNo() {
 		return targetOrderNo;
@@ -112,6 +119,12 @@ public class Order {
 			this.paymentGatewayName = "银商C扫B";
 		} else if("JUZHEN".equals(paymentGateway)) {
 			this.paymentGatewayName = "钜真";
+		} else if("CHINAUMSH5".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商H5";
+		} else if("CHINAUMSWAP".equals(paymentGateway)) {
+			this.paymentGatewayName = "银商H5";
+		} else if("UPAY".equals(paymentGateway)) {
+			this.paymentGatewayName = "收钱吧H5";
 		}
 	}
 	public String getPaymentGatewayName() {
